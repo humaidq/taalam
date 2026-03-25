@@ -1,0 +1,87 @@
+{{ template "head" . }}
+
+<div class="welcome-container">
+  <h2>Taalam</h2>
+
+  {{ if .IsAuthenticated }}
+  <p class="welcome-subtitle">{{ if .UserDisplayName }}Welcome {{ .UserDisplayName }}.{{ else }}Welcome.{{ end }} Manage usernames, passwords, passkeys, and session access.</p>
+
+  <form method="POST" action="/logout" class="hidden" data-dashboard-logout-form>
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+  </form>
+
+  <div class="list-card-list welcome-service-list">
+    <div class="list-card list-card-clickable">
+      <a href="/security" class="list-card-link list-card-entry-link">
+        <div class="list-card-entry">
+          <span class="list-card-leading"><span class="list-card-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span></span>
+          <div class="list-card-entry-body">
+            <div class="list-card-entry-title">Security</div>
+            <div class="list-card-entry-description">Manage usernames, passwords, passkeys, and administrator provisioning tools.</div>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <div class="list-card list-card-clickable">
+      <a href="/logout" class="list-card-link list-card-entry-link" data-dashboard-logout-link>
+        <div class="list-card-entry">
+          <span class="list-card-leading"><span class="list-card-icon" aria-hidden="true"><i class="fa-solid fa-right-from-bracket"></i></span></span>
+          <div class="list-card-entry-body">
+            <div class="list-card-entry-title">Logout</div>
+            <div class="list-card-entry-description">End this session on the current device.</div>
+          </div>
+        </div>
+      </a>
+    </div>
+  </div>
+  {{ else }}
+  <div class="section-card dashboard-quickstart">
+    <h3>Access</h3>
+    <p>Sign in with a username and password, or use passkeys after adding one to your account. New deployments are initialized through a bootstrap or invite setup link.</p>
+    <div class="list-card-meta">
+      <a href="/login" class="btn">Log in</a>
+    </div>
+  </div>
+  {{ end }}
+
+  {{ if .BootstrapRequired }}
+    {{ if .BootstrapConfigured }}
+    <div class="alert alert-grey">
+      <h5 class="alert-title">Initial setup available</h5>
+      <p>No accounts exist yet. Use the configured bootstrap setup link to create the first administrator account.</p>
+    </div>
+    {{ else }}
+    <div class="alert alert-yellow">
+      <h5 class="alert-title">Bootstrap token missing</h5>
+      <p>No accounts exist yet, but `BOOTSTRAP_TOKEN` is not configured, so first-time setup is currently blocked.</p>
+    </div>
+    {{ end }}
+  {{ end }}
+</div>
+
+{{ if .IsAuthenticated }}
+<script>
+  (function() {
+    var logoutLink = document.querySelector("[data-dashboard-logout-link]");
+    var logoutForm = document.querySelector("[data-dashboard-logout-form]");
+
+    if (!logoutLink || !logoutForm) {
+      return;
+    }
+
+    logoutLink.addEventListener("click", function(event) {
+      event.preventDefault();
+      if (typeof logoutForm.requestSubmit === "function") {
+        logoutForm.requestSubmit();
+
+        return;
+      }
+
+      logoutForm.submit();
+    });
+  })();
+</script>
+{{ end }}
+
+{{ template "foot" . }}

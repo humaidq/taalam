@@ -1,0 +1,254 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>Account</h2>
+  <div class="page-header-actions">
+    <a href="/" class="btn">Home</a>
+    <form method="POST" action="/logout" class="inline-form">
+      <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+      <button type="submit" class="btn">Logout</button>
+    </form>
+  </div>
+</div>
+
+<div class="section-heading">Username &amp; Password</div>
+
+<div class="list-card">
+  <div class="list-card-title">{{ if .UserRoleLabel }}{{ .UserRoleLabel }} account{{ else }}Account{{ end }}</div>
+  <div class="list-card-meta">
+    <span class="muted-text">Username {{ if .Username }}<code>{{ .Username }}</code>{{ else }}not set{{ end }}</span>
+    <span class="muted-text">Password {{ if .HasPassword }}configured{{ else }}not set{{ end }}</span>
+  </div>
+</div>
+
+<form method="POST" action="/security/account/username" class="form-group auth-form-stack">
+  <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+  <label for="account-username" class="item-title">Username</label>
+  <input type="text" id="account-username" name="username" class="form-item" autocomplete="username" required value="{{ .Username }}" />
+  <p class="muted-text">Use 3-32 lowercase letters, numbers, dots, dashes, or underscores.</p>
+  <div class="form-group">
+    <button type="submit" class="btn">Save username</button>
+  </div>
+</form>
+
+<form method="POST" action="/security/account/password" class="form-group auth-form-stack">
+  <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+  <div class="form-grid">
+    <div class="form-group">
+      <label for="account-password" class="item-title">New password</label>
+      <input type="password" id="account-password" name="password" class="form-item" autocomplete="new-password" required />
+    </div>
+
+    <div class="form-group">
+      <label for="account-confirm-password" class="item-title">Confirm password</label>
+      <input type="password" id="account-confirm-password" name="confirm_password" class="form-item" autocomplete="new-password" required />
+    </div>
+  </div>
+
+  <div class="form-group">
+    <button type="submit" class="btn">{{ if .HasPassword }}Update password{{ else }}Set password{{ end }}</button>
+  </div>
+</form>
+
+<div class="section-heading">Passkeys</div>
+
+<div class="alert alert-red hidden" data-webauthn-error>
+  <h5 class="alert-title">Error</h5>
+  <p data-webauthn-error-message></p>
+</div>
+
+<div class="form-group">
+  <label for="passkey-label" class="item-title">New passkey label (optional)</label>
+  <input type="text" id="passkey-label" class="form-item" placeholder="MacBook Pro, iPhone" />
+</div>
+
+<div class="form-group">
+  <button
+    type="button"
+    class="btn"
+    data-webauthn-register
+    data-start-url="/webauthn/passkey/start"
+    data-finish-url="/webauthn/passkey/finish"
+    data-passkey-label-input="#passkey-label"
+  >Add passkey</button>
+</div>
+
+{{ if .Passkeys }}
+<div class="list-card-list">
+  {{ range .Passkeys }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .Label }}</div>
+    <div class="list-card-meta">
+      <span class="muted-text">Created {{ .CreatedAt.Format "Jan 2, 2006" }}</span>
+      {{ if .LastUsed }}
+      <span class="muted-text" title="{{ .LastUsed.Format "Jan 2, 2006 15:04" }}">Last used {{ .LastUsed.Format "Jan 2, 2006" }}</span>
+      {{ else }}
+      <span class="muted-text">Never used</span>
+      {{ end }}
+    </div>
+    {{ if .CanDelete }}
+    <div class="list-card-meta">
+      <form method="POST" action="/security/passkeys/{{ .ID }}/delete" class="inline-form">
+        <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
+    </div>
+    {{ end }}
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No passkeys registered.</p>
+{{ end }}
+
+{{ if not .CanDeletePasskeys }}
+<p class="muted-text">Set a password before deleting your last passkey.</p>
+{{ end }}
+
+<script src="/webauthn.js" defer></script>
+
+{{ if .IsAdmin }}
+<div class="section-heading">User Provisioning</div>
+
+{{ if .InviteError }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .InviteError }}</p>
+</div>
+{{ end }}
+
+{{ if .GeneratedAccount }}
+<div class="alert alert-grey credential-preview">
+  <h5 class="alert-title">Account created</h5>
+  <p>Share these credentials now. The generated password is shown only once.</p>
+  <div class="credential-preview-grid">
+    <span class="muted-text">Role</span>
+    <code>{{ .GeneratedAccount.RoleLabel }}</code>
+    <span class="muted-text">Display name</span>
+    <code>{{ .GeneratedAccount.DisplayName }}</code>
+    <span class="muted-text">Username</span>
+    <code>{{ .GeneratedAccount.Username }}</code>
+    <span class="muted-text">Password</span>
+    <code>{{ .GeneratedAccount.Password }}</code>
+  </div>
+</div>
+{{ end }}
+
+<div class="section-card">
+  <h3>Create invite link</h3>
+  <form method="POST" action="/security/invites" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="invite-display-name" class="item-title">Display name (optional)</label>
+        <input type="text" id="invite-display-name" name="display_name" class="form-item" placeholder="Guest" />
+      </div>
+
+      <div class="form-group">
+        <label for="invite-role" class="item-title">Role</label>
+        <select id="invite-role" name="role" class="form-item">
+          <option value="student">Student</option>
+          <option value="teacher">Teacher</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="muted-text">Invites expire 24 hours after creation and let the user choose their own username and password.</p>
+    <div class="form-group">
+      <button type="submit" class="btn">Create invite</button>
+    </div>
+  </form>
+</div>
+
+<div class="section-card">
+  <h3>Generate credentials</h3>
+  <form method="POST" action="/security/users/password" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="generated-display-name" class="item-title">Display name (optional)</label>
+        <input type="text" id="generated-display-name" name="display_name" class="form-item" placeholder="Student name" />
+      </div>
+
+      <div class="form-group">
+        <label for="generated-username" class="item-title">Username</label>
+        <input type="text" id="generated-username" name="username" class="form-item" required />
+      </div>
+
+      <div class="form-group">
+        <label for="generated-role" class="item-title">Role</label>
+        <select id="generated-role" name="role" class="form-item">
+          <option value="student">Student</option>
+          <option value="teacher">Teacher</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="muted-text">Creates the account immediately and generates a random 12-character password.</p>
+    <div class="form-group">
+      <button type="submit" class="btn">Generate credentials</button>
+    </div>
+  </form>
+</div>
+
+{{ if .UserInvites }}
+<div class="list-card-list">
+  {{ range .UserInvites }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .DisplayName }}</div>
+    <div class="list-card-meta">
+      <span class="badge">{{ .RoleLabel }}</span>
+      <span class="muted-text">Created {{ .CreatedAt.Format "Jan 2, 2006" }}</span>
+      <span class="muted-text" title="{{ .ExpiresAt.Format "Jan 2, 2006 15:04" }}">Expires {{ .ExpiresIn }}</span>
+    </div>
+    <div class="list-card-meta">
+      <a href="{{ .SetupURL }}" class="btn" target="_blank" rel="noreferrer">Open setup link</a>
+      <form method="POST" action="/security/invites/{{ .ID }}/delete" class="inline-form" onsubmit="return confirm('Revoke this invite?');">
+        <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+        <button type="submit" class="btn btn-danger">Revoke</button>
+      </form>
+    </div>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No pending invites.</p>
+{{ end }}
+
+{{ if .ExpiredUserInvites }}
+<p class="muted-text">Expired invites (regenerate to issue a new setup link):</p>
+<div class="list-card-list">
+  {{ range .ExpiredUserInvites }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .DisplayName }}</div>
+    <div class="list-card-meta">
+      <span class="badge">{{ .RoleLabel }}</span>
+      <span class="muted-text">Created {{ .CreatedAt.Format "Jan 2, 2006" }}</span>
+      <span class="muted-text" title="{{ .ExpiresAt.Format "Jan 2, 2006 15:04" }}">Expired {{ .ExpiresAt.Format "Jan 2, 2006" }}</span>
+    </div>
+    <div class="list-card-meta">
+      <form method="POST" action="/security/invites/{{ .ID }}/regenerate" class="inline-form" onsubmit="return confirm('Regenerate this invite link?');">
+        <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+        <button type="submit" class="btn">Regenerate link</button>
+      </form>
+      <form method="POST" action="/security/invites/{{ .ID }}/delete" class="inline-form" onsubmit="return confirm('Delete this expired invite?');">
+        <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </form>
+    </div>
+  </div>
+  {{ end }}
+</div>
+{{ end }}
+{{ end }}
+
+{{ template "foot" . }}

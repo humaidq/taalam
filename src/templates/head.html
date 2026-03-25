@@ -1,0 +1,64 @@
+{{ define "head" }}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#7a3300" />
+    <meta name="csrf-token" content="{{ .csrf_token }}" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/main.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <title>{{ if .PageTitle }}{{ .PageTitle }} - Taalam{{ else }}Taalam{{ end }}</title>
+  </head>
+  <body>
+    <header class="groundwave-header">
+      <div class="header-container">
+        <a href="/" class="header-logo">Taalam</a>
+        {{ if not .HeaderOnly }}
+        <button class="nav-hamburger" aria-label="Toggle navigation menu" onclick="this.classList.toggle('active');document.querySelector('.nav-menu').classList.toggle('active')">
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
+        {{ end }}
+      </div>
+      {{ if not .HeaderOnly }}
+      <nav class="navbar">
+        <div class="nav-menu">
+          <a href="/"{{ if .IsDashboard }} class="nav-active"{{ end }}>Home</a>
+          {{ if .IsAuthenticated }}
+          <a href="/security"{{ if .IsSecurity }} class="nav-active"{{ end }}>Account</a>
+          {{ else }}
+          <a href="/login">Log in</a>
+          {{ end }}
+        </div>
+      </nav>
+      {{ end }}
+    </header>
+    <main>
+      {{ if .Flash }}
+        {{ $flash := .Flash }}
+        {{ if eq $flash.Type "error" }}
+          <div class="alert alert-red">
+            <h5 class="alert-title">Error</h5>
+            <p>{{ $flash.Message }}</p>
+          </div>
+        {{ else if eq $flash.Type "success" }}
+          <div class="alert alert-green">
+            <h5 class="alert-title">Success</h5>
+            <p>{{ $flash.Message }}</p>
+          </div>
+        {{ else if eq $flash.Type "warning" }}
+          <div class="alert alert-yellow">
+            <h5 class="alert-title">Warning</h5>
+            <p>{{ $flash.Message }}</p>
+          </div>
+        {{ else if eq $flash.Type "info" }}
+          <div class="alert alert-grey">
+            <h5 class="alert-title">Info</h5>
+            <p>{{ $flash.Message }}</p>
+          </div>
+        {{ end }}
+      {{ end }}
+{{ end }}

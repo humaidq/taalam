@@ -1,0 +1,40 @@
+# Copyright 2026 Humaid Alqasimi
+# SPDX-License-Identifier: Apache-2.0
+{ inputs, ... }:
+{
+  imports = [
+    inputs.flake-root.flakeModule
+    inputs.treefmt-nix.flakeModule
+  ];
+  perSystem =
+    { config, pkgs, ... }:
+    {
+      treefmt.config = {
+        package = pkgs.treefmt;
+        inherit (config.flake-root) projectRootFile;
+
+        programs = {
+          # Nix
+          nixfmt.enable = true;
+          nixfmt.package = pkgs.nixfmt;
+          deadnix.enable = true; # removes dead nix code https://github.com/astro/deadnix
+          statix.enable = true; # prevents use of nix anti-patterns https://github.com/nerdypepper/statix
+          # Bash
+          shellcheck.enable = true; # lints shell scripts https://github.com/koalaman/shellcheck
+          # Golang
+          gofmt.enable = true;
+        };
+
+        settings.global.excludes = [
+          ".git/*"
+          ".github/*"
+          ".direnv/*"
+          ".envrc"
+          "src/vendor/**"
+          "result*"
+        ];
+      };
+
+      formatter = config.treefmt.build.wrapper;
+    };
+}

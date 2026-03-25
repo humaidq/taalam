@@ -1,0 +1,66 @@
+{{ template "head" . }}
+
+<div class="page-header">
+  <h2>Login</h2>
+</div>
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="alert alert-red hidden" data-webauthn-error>
+  <h5 class="alert-title">Error</h5>
+  <p data-webauthn-error-message></p>
+</div>
+
+<p>Sign in with a username and password, or use passkeys if you have already added one to your account.</p>
+<form method="POST" action="/login" class="form-group auth-form-stack">
+  <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+  <input type="hidden" name="next" value="{{ .Next }}" />
+
+  <div class="form-group">
+    <label for="login-username" class="item-title">Username</label>
+    <input type="text" id="login-username" name="username" class="form-item" autocomplete="username" required value="{{ .Username }}" />
+  </div>
+
+  <div class="form-group">
+    <label for="login-password" class="item-title">Password</label>
+    <input type="password" id="login-password" name="password" class="form-item" autocomplete="current-password" required />
+  </div>
+
+  <div class="form-group">
+    <label class="checkbox-label">
+      <input type="checkbox" id="stay-logged-in" name="remember" value="1"{{ if .RememberLogin }} checked{{ end }} />
+      Stay logged in
+    </label>
+  </div>
+
+  <div class="form-group">
+    <button type="submit" class="btn btn-block">Login</button>
+  </div>
+</form>
+
+<div class="auth-divider">
+  <span>or</span>
+</div>
+
+<div class="form-group">
+  <button
+    type="button"
+    class="btn btn-block"
+    data-webauthn-login
+    data-start-url="/webauthn/login/start"
+    data-finish-url="/webauthn/login/finish"
+    data-redirect-url="{{ .Next }}"
+    data-next-path="{{ .Next }}"
+    data-remember-input="#stay-logged-in"
+  >Authenticate with Passkeys</button>
+</div>
+<p class="muted-text" data-webauthn-support></p>
+
+<script src="/webauthn.js" defer></script>
+
+{{ template "foot" . }}
