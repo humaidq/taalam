@@ -1,0 +1,45 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>New unit</h2>
+  <div class="page-header-actions">
+    <a href="/courses/{{ .Course.ID }}" class="btn">{{ .Course.Code }}</a>
+    <a href="/courses" class="btn">Courses</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Create unit in {{ .Course.Code }} - {{ .Course.Title }}</h3>
+  <form method="POST" action="/courses/{{ .Course.ID }}/units" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="unit-title" class="item-title">Title</label>
+      <input type="text" id="unit-title" name="title" class="form-item" placeholder="Unit 1: Introduction" required />
+    </div>
+    <div class="form-group">
+      <label for="unit-description" class="item-title">Description</label>
+      <textarea id="unit-description" name="description" class="form-item" rows="4" placeholder="Short unit overview."></textarea>
+    </div>
+    <div class="form-group">
+      <label for="unit-insert-after" class="item-title">Insert after</label>
+      <select id="unit-insert-after" name="insert_after_item_id" class="form-item">
+        <option value="">At the end of the course content</option>
+        {{ range .OutlineInsertOptions }}
+        <option value="{{ .ID }}">{{ .Label }}</option>
+        {{ end }}
+      </select>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Create unit</button>
+    </div>
+  </form>
+</div>
+
+{{ template "foot" . }}

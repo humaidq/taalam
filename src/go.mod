@@ -13,6 +13,7 @@ require (
 	github.com/jackc/pgx/v5 v5.8.0
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/urfave/cli/v3 v3.6.1
+	github.com/yuin/goldmark v1.7.13
 	golang.org/x/crypto v0.43.0
 )
 

@@ -49,9 +49,27 @@ type generatedAccountInfo struct {
 	RoleLabel   string
 }
 
+type managedUserInfo struct {
+	ID            string
+	DisplayName   string
+	Username      string
+	Role          string
+	RoleLabel     string
+	HasPassword   bool
+	CreatedAt     string
+	UpdatedAt     string
+	DeactivatedAt string
+	IsDeactivated bool
+	CanDeactivate bool
+}
+
 // Security renders the account management page.
 func Security(c flamego.Context, s session.Session, t template.Template, data template.Data) {
 	setPage(data, "Account")
+	setBreadcrumbs(data, []BreadcrumbItem{
+		homeBreadcrumb(),
+		{Name: "Account", IsCurrent: true},
+	})
 	data["IsSecurity"] = true
 
 	ctx := c.Request().Context()
@@ -166,6 +184,35 @@ func Security(c flamego.Context, s session.Session, t template.Template, data te
 			}
 
 			data["ExpiredUserInvites"] = expiredInviteInfos
+		}
+
+		managedUsers, err := db.ListManagedUsers(ctx)
+		if err != nil {
+			logger.Error("failed to load users", "error", err)
+			data["InviteError"] = "Failed to load users"
+		} else {
+			userItems := make([]managedUserInfo, 0, len(managedUsers))
+			for _, managedUser := range managedUsers {
+				item := managedUserInfo{
+					ID:            managedUser.ID.String(),
+					DisplayName:   managedUser.DisplayName,
+					Username:      valueOrEmpty(managedUser.Username),
+					Role:          string(managedUser.Role),
+					RoleLabel:     managedUser.Role.Label(),
+					HasPassword:   managedUser.HasPassword,
+					CreatedAt:     managedUser.CreatedAt.Format("Jan 2, 2006"),
+					UpdatedAt:     managedUser.UpdatedAt.Format("Jan 2, 2006 15:04"),
+					CanDeactivate: managedUser.ID != user.ID,
+				}
+				if managedUser.DeactivatedAt != nil {
+					item.IsDeactivated = true
+					item.DeactivatedAt = managedUser.DeactivatedAt.Format("Jan 2, 2006 15:04")
+				}
+
+				userItems = append(userItems, item)
+			}
+
+			data["ManagedUsers"] = userItems
 		}
 	}
 
@@ -461,6 +508,89 @@ func DeleteUserInvite(c flamego.Context, s session.Session) {
 	c.Redirect("/security", http.StatusSeeOther)
 }
 
+// UpdateManagedUser updates an admin-managed user account.
+func UpdateManagedUser(c flamego.Context, s session.Session) {
+	ctx := c.Request().Context()
+
+	isAdmin, err := resolveSessionIsAdmin(ctx, s)
+	if err != nil || !isAdmin {
+		SetErrorFlash(s, "Access restricted")
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	if err := c.Request().ParseForm(); err != nil {
+		SetErrorFlash(s, "Failed to parse form")
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	actorUserID, ok := getSessionUserID(s)
+	if !ok {
+		SetErrorFlash(s, "Unable to resolve current user")
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	role, err := db.NormalizeRole(c.Request().Form.Get("role"))
+	if err != nil {
+		SetErrorFlash(s, "Choose a valid role")
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	if _, err := db.UpdateManagedUser(ctx, db.UpdateManagedUserInput{
+		UserID:      c.Param("id"),
+		DisplayName: c.Request().Form.Get("display_name"),
+		Username:    c.Request().Form.Get("username"),
+		Role:        role,
+		UpdatedBy:   actorUserID,
+	}); err != nil {
+		SetErrorFlash(s, humanizeAccountCreationError(err))
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	SetSuccessFlash(s, "User updated")
+	c.Redirect("/security", http.StatusSeeOther)
+}
+
+// DeactivateUser disables a user account.
+func DeactivateUser(c flamego.Context, s session.Session) {
+	ctx := c.Request().Context()
+
+	isAdmin, err := resolveSessionIsAdmin(ctx, s)
+	if err != nil || !isAdmin {
+		SetErrorFlash(s, "Access restricted")
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	actorUserID, ok := getSessionUserID(s)
+	if !ok {
+		SetErrorFlash(s, "Unable to resolve current user")
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	if err := db.DeactivateUser(ctx, actorUserID, c.Param("id")); err != nil {
+		SetErrorFlash(s, humanizeAccountCreationError(err))
+		c.Redirect("/security", http.StatusSeeOther)
+
+		return
+	}
+
+	SetSuccessFlash(s, "User deactivated")
+	c.Redirect("/security", http.StatusSeeOther)
+}
+
 func formatDuration(d time.Duration) string {
 	if d < 0 {
 		return "expired"
@@ -562,6 +692,16 @@ func humanizeAccountCreationError(err error) string {
 		return db.ErrPasswordTooShort.Error()
 	case db.ErrInvalidRole:
 		return "Choose a valid role"
+	case db.ErrUserNotFound:
+		return "User not found"
+	case db.ErrUserAlreadyDeactivated:
+		return "User is already deactivated"
+	case db.ErrUserDeactivated:
+		return "Deactivated users cannot be modified"
+	case db.ErrCannotDeactivateCurrentUser:
+		return "You cannot deactivate your own account"
+	case db.ErrActiveAdminRequired:
+		return "At least one active admin account must remain"
 	default:
 		return "Failed to save account"
 	}

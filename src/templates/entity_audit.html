@@ -1,0 +1,52 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>Entity audit</h2>
+  <div class="page-header-actions">
+    <a href="/chain" class="btn">Chain</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Audit target</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Entity type <code>{{ .EntityType }}</code></span>
+    <span class="muted-text">Entity ID <code>{{ .EntityID }}</code></span>
+  </div>
+</div>
+
+{{ if .Records }}
+<div class="list-card-list">
+  {{ range .Records }}
+  <div class="list-card">
+    <div class="list-card-title">Block {{ .BlockHeight }} - {{ .EventType }}</div>
+    <div class="list-card-meta">
+      <span class="muted-text">Actor <code>{{ .ActorLabel }}</code></span>
+      <span class="muted-text">Occurred {{ .OccurredAt }}</span>
+      <span class="muted-text">Block hash <code>{{ .BlockHash }}</code></span>
+      <span class="muted-text">Event hash <code>{{ .EventHash }}</code></span>
+    </div>
+    <details class="add-item-details">
+      <summary class="add-item-summary">Payload</summary>
+      <div class="add-item-form">
+        <pre><code>{{ .PayloadJSON }}</code></pre>
+      </div>
+    </details>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<div class="section-card">
+  <h3>No audit records</h3>
+  <p class="muted-text">No blockchain events are linked to this entity yet.</p>
+</div>
+{{ end }}
+
+{{ template "foot" . }}

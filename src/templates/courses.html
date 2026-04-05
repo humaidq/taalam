@@ -1,0 +1,51 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>Courses</h2>
+  <div class="page-header-actions">
+    <a href="/" class="btn">Home</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Your course space</h3>
+  <p class="muted-text">{{ if .CanCreateCourse }}Create new courses and open them to instructors and students from the course detail page.{{ else }}Open a course to review instructors, rosters, and course information available to your role.{{ end }}</p>
+  {{ if .CanCreateCourse }}<p><a href="/courses/new" class="btn">Create course</a></p>{{ end }}
+</div>
+
+{{ if .Courses }}
+<div class="list-card-list">
+  {{ range .Courses }}
+  <div class="list-card list-card-clickable">
+    <a href="/courses/{{ .ID }}" class="list-card-link list-card-entry-link">
+      <div class="list-card-entry">
+        <span class="list-card-leading"><span class="list-card-icon" aria-hidden="true"><i class="fa-solid fa-book-open"></i></span></span>
+        <div class="list-card-entry-body">
+          <div class="list-card-entry-title">{{ .Code }} - {{ .Title }}</div>
+          <div class="list-card-entry-description">{{ .Term }}</div>
+          <div class="list-card-meta">
+            <span class="muted-text">{{ .InstructorCount }} instructor{{ if ne .InstructorCount 1 }}s{{ end }}</span>
+            <span class="muted-text">{{ .StudentCount }} student{{ if ne .StudentCount 1 }}s{{ end }}</span>
+            <span class="muted-text">Created {{ .CreatedAt }}</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<div class="section-card">
+  <h3>No courses yet</h3>
+  <p class="muted-text">{{ if .CanCreateCourse }}Create the first course to begin assigning instructors and enrolling students.{{ else }}No courses are currently visible to this account.{{ end }}</p>
+</div>
+{{ end }}
+
+{{ template "foot" . }}

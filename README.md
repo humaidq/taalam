@@ -1,18 +1,6 @@
 # Taalam
 
-Taalam is now trimmed down to the minimal app shell needed for the next phase of the project.
-
-What remains:
-
-- landing page
-- passkey login and setup
-- CSRF protection for forms and WebAuthn flows
-- account management
-- invite-based new user onboarding
-- PostgreSQL-backed sessions and auth data
-- Nix flake and devshell support for local development
-
-Run locally from `src/`:
+A learning management system proof-of-concept built on a custom blockchain.
 
 ```bash
 go run . migrate up --database-url "$DATABASE_URL"

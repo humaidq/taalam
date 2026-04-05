@@ -51,17 +51,6 @@ func UserContextInjector() flamego.Handler {
 }
 
 func resolveSessionIsAdmin(ctx context.Context, s session.Session) (bool, error) {
-	if role, ok := s.Get("user_role").(string); ok {
-		normalizedRole, err := db.NormalizeRole(role)
-		if err == nil {
-			return normalizedRole.IsAdmin(), nil
-		}
-	}
-
-	if isAdmin, ok := s.Get("user_is_admin").(bool); ok {
-		return isAdmin, nil
-	}
-
 	user, err := resolveSessionUser(ctx, s)
 	if err != nil {
 		return false, err
@@ -71,13 +60,6 @@ func resolveSessionIsAdmin(ctx context.Context, s session.Session) (bool, error)
 }
 
 func resolveSessionRole(ctx context.Context, s session.Session) (db.UserRole, error) {
-	if role, ok := s.Get("user_role").(string); ok {
-		normalizedRole, err := db.NormalizeRole(role)
-		if err == nil {
-			return normalizedRole, nil
-		}
-	}
-
 	user, err := resolveSessionUser(ctx, s)
 	if err != nil {
 		return "", err

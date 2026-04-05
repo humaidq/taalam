@@ -1,0 +1,42 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>Submission receipt</h2>
+  <div class="page-header-actions">
+    <a href="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}" class="btn">Assignment</a>
+    <a href="/courses/{{ .Course.ID }}" class="btn">Course</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <p>This receipt confirms your submission was recorded. Save the file hash below to verify your submission at any time.</p>
+  <h3>Submission summary</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Assignment <code>{{ .Assignment.Title }}</code></span>
+    <span class="muted-text">Version <code>{{ .Receipt.Version }}</code></span>
+    <span class="muted-text">File <code>{{ .Receipt.FileName }}</code></span>
+    <span class="muted-text">Content type <code>{{ .Receipt.ContentType }}</code></span>
+    <span class="muted-text">Size <code>{{ .Receipt.FileSize }}</code> bytes</span>
+    <span class="muted-text">Submitted {{ .Receipt.SubmittedAt }}</span>
+    <span class="muted-text">File hash <code class="hash">{{ .Receipt.FileSHA256 }}</code></span>
+  </div>
+</div>
+
+<details class="section-card">
+  <summary><h3 style="display:inline">Blockchain proof</h3></summary>
+  <div class="list-card-meta" style="margin-top:0.5rem">
+    <span class="muted-text">Event hash <code class="hash">{{ .Receipt.EventHash }}</code></span>
+    <span class="muted-text">Block height <code>{{ .Receipt.BlockHeight }}</code></span>
+    <span class="muted-text">Block hash <code class="hash">{{ .Receipt.BlockHash }}</code></span>
+  </div>
+  {{ if .IsAdmin }}<p><a href="/chain/audit/submission/{{ .Receipt.ID }}" class="btn">Audit trail</a></p>{{ end }}
+</details>
+
+{{ template "foot" . }}

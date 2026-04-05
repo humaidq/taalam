@@ -1,0 +1,414 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>{{ .Course.Code }} - {{ .Course.Title }}</h2>
+  <div class="page-header-actions">
+    <a href="/courses" class="btn">Courses</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <div class="list-card-meta">
+    <span class="muted-text">Term <code>{{ .Course.Term }}</code></span>
+    {{ if .CanManageCourse }}
+    <span class="muted-text">{{ .Course.InstructorCount }} instructor{{ if ne .Course.InstructorCount 1 }}s{{ end }}</span>
+    <span class="muted-text">{{ .Course.StudentCount }} student{{ if ne .Course.StudentCount 1 }}s{{ end }}</span>
+    <span class="muted-text">Created {{ .Course.CreatedAt }}</span>
+    {{ end }}
+  </div>
+  {{ if .IsAdmin }}<p><a href="/chain/audit/course/{{ .Course.ID }}" class="btn">Audit trail</a></p>{{ end }}
+</div>
+
+{{ if .CanAssignCourse }}
+<div class="section-card">
+  <h3>Edit course</h3>
+  <form method="POST" action="/courses/{{ .Course.ID }}" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="course-code" class="item-title">Course code</label>
+        <input type="text" id="course-code" name="code" class="form-item" value="{{ .Course.Code }}" required />
+      </div>
+      <div class="form-group">
+        <label for="course-term" class="item-title">Term</label>
+        <input type="text" id="course-term" name="term" class="form-item" value="{{ .Course.Term }}" required />
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="course-title" class="item-title">Course title</label>
+      <input type="text" id="course-title" name="title" class="form-item" value="{{ .Course.Title }}" required />
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Save course</button>
+    </div>
+  </form>
+  <form method="POST" action="/courses/{{ .Course.ID }}/delete" class="inline-form" onsubmit="return confirm('Delete this course and all related content?');">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <button type="submit" class="btn btn-danger">Delete course</button>
+  </form>
+</div>
+{{ end }}
+
+<div class="tab-bar" role="tablist">
+  <button class="tab-btn tab-active" role="tab" aria-selected="true" aria-controls="tab-content" data-tab="content" onclick="switchTab('content')">Content</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-assignments" data-tab="assignments" onclick="switchTab('assignments')">Assignments</button>
+  <button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-people" data-tab="people" onclick="switchTab('people')">People</button>
+  {{ if .CanManageCourse }}<button class="tab-btn" role="tab" aria-selected="false" aria-controls="tab-records" data-tab="records" onclick="switchTab('records')">Records</button>{{ end }}
+</div>
+
+<!-- Tab: Content -->
+<div id="tab-content" class="tab-panel tab-active" role="tabpanel">
+
+{{ if .CourseOutline }}
+<div class="content-outline-list">
+  {{ range .CourseOutline }}
+  {{ if .Unit }}
+  <section class="list-card content-outline-card">
+    <div class="content-outline-card-header">
+      <div>
+        <div class="list-card-title">Unit: {{ .Unit.Title }}</div>
+        <div class="list-card-meta">
+          <span class="muted-text">{{ .Unit.LessonCount }} lesson{{ if ne .Unit.LessonCount 1 }}s{{ end }}</span>
+          {{ if .Unit.Description }}<span class="muted-text">{{ .Unit.Description }}</span>{{ end }}
+        </div>
+      </div>
+    </div>
+
+    {{ if .Unit.Lessons }}
+    <div class="content-lesson-list">
+      {{ range .Unit.Lessons }}
+      <a href="/courses/{{ $.Course.ID }}/lessons/{{ .ID }}" class="list-card-link content-lesson-link{{ if .Completed }} content-lesson-link-completed{{ end }}">
+        <span class="content-lesson-order">Lesson {{ .Position }}</span>
+        <span class="content-lesson-body">
+          <span class="content-lesson-title">{{ .Title }}</span>
+          {{ if .Description }}<span class="content-lesson-description">{{ .Description }}</span>{{ end }}
+          <span class="muted-text">{{ .SlideCount }} slide{{ if ne .SlideCount 1 }}s{{ end }} - Updated {{ .UpdatedAt }}</span>
+        </span>
+        {{ if .Completed }}<span class="badge badge-success">Completed</span>{{ end }}
+      </a>
+      {{ end }}
+    </div>
+    {{ else }}
+    <p class="muted-text">No lessons in this unit yet.</p>
+    {{ end }}
+
+    {{ if $.CanManageCourse }}
+    <p><a href="/courses/{{ $.Course.ID }}/units/{{ .Unit.ID }}/lessons/new" class="btn">Add lesson</a></p>
+    {{ end }}
+  </section>
+  {{ else if .Assignment }}
+  <div class="list-card content-outline-card content-outline-assignment-card">
+    <div class="list-card-entry">
+      <span class="list-card-leading"><span class="list-card-icon" aria-hidden="true"><i class="fa-solid fa-clipboard-list"></i></span></span>
+      <div class="list-card-entry-body">
+        <div class="list-card-entry-title">Assignment: {{ .Assignment.Title }}</div>
+        <div class="list-card-entry-description">{{ if .Assignment.Description }}{{ .Assignment.Description }}{{ else }}No description provided.{{ end }}</div>
+        <div class="list-card-meta">
+          <span class="muted-text">Due {{ .Assignment.DueAt }}</span>
+          <span class="muted-text">Max grade <code>{{ .Assignment.MaxGrade }}</code></span>
+        </div>
+        <p><a href="/courses/{{ $.Course.ID }}/assignments/{{ .Assignment.ID }}" class="btn">Open assignment</a></p>
+      </div>
+    </div>
+  </div>
+  {{ end }}
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No course content has been added yet.</p>
+{{ end }}
+
+{{ if .CanManageCourse }}
+<p>
+  <a href="/courses/{{ .Course.ID }}/units/new" class="btn">Add unit</a>
+  <a href="/courses/{{ .Course.ID }}/assignments/new" class="btn">Add assignment</a>
+</p>
+{{ end }}
+
+</div>
+
+<!-- Tab: Assignments -->
+<div id="tab-assignments" class="tab-panel" role="tabpanel">
+
+{{ if .Assignments }}
+<div class="list-card-list">
+  {{ range .Assignments }}
+  <div class="list-card list-card-clickable">
+    <a href="/courses/{{ .CourseID }}/assignments/{{ .ID }}" class="list-card-link list-card-entry-link">
+      <div class="list-card-entry">
+        <span class="list-card-leading"><span class="list-card-icon" aria-hidden="true"><i class="fa-solid fa-clipboard-list"></i></span></span>
+        <div class="list-card-entry-body">
+          <div class="list-card-entry-title">{{ .Title }}</div>
+          <div class="list-card-entry-description">{{ if .Description }}{{ .Description }}{{ else }}No description provided.{{ end }}</div>
+          <div class="list-card-meta">
+            <span class="muted-text">Due {{ .DueAt }}</span>
+            <span class="muted-text">Max grade <code>{{ .MaxGrade }}</code></span>
+            <span class="muted-text">Published {{ .CreatedAt }}</span>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No assignments have been published yet.</p>
+{{ end }}
+
+{{ if .CanCreateAssignment }}
+<p><a href="/courses/{{ .Course.ID }}/assignments/new" class="btn">Add assignment</a></p>
+{{ end }}
+
+</div>
+
+<!-- Tab: People -->
+<div id="tab-people" class="tab-panel" role="tabpanel">
+
+<div class="section-heading">Instructors</div>
+
+{{ if .Instructors }}
+<div class="list-card-list">
+  {{ range .Instructors }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .DisplayName }}</div>
+    <div class="list-card-meta">
+      <span class="badge">{{ .RoleLabel }}</span>
+      {{ if .Username }}<span class="muted-text">Username <code>{{ .Username }}</code></span>{{ end }}
+      <span class="muted-text">Assigned {{ .AssignedAt }}</span>
+    </div>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No instructors are assigned yet.</p>
+{{ end }}
+
+{{ if .CanAssignCourse }}
+<div class="section-card">
+  <h3>Assign instructor</h3>
+  {{ if .AvailableTeachers }}
+  <form method="POST" action="/courses/{{ .Course.ID }}/instructors" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="teacher-id" class="item-title">Teacher</label>
+      <select id="teacher-id" name="teacher_id" class="form-item">
+        {{ range .AvailableTeachers }}
+        <option value="{{ .ID }}">{{ .DisplayName }}{{ if .Username }} ({{ .Username }}){{ end }}</option>
+        {{ end }}
+      </select>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Assign instructor</button>
+    </div>
+  </form>
+  {{ else }}
+  <p class="muted-text">All available teacher accounts are already assigned to this course.</p>
+  {{ end }}
+</div>
+{{ end }}
+
+{{ if .CanManageCourse }}
+<div class="section-heading">Students</div>
+
+{{ if .Students }}
+<div class="list-card-list">
+  {{ range .Students }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .DisplayName }}</div>
+    <div class="list-card-meta">
+      <span class="badge">{{ .RoleLabel }}</span>
+      {{ if .Username }}<span class="muted-text">Username <code>{{ .Username }}</code></span>{{ end }}
+      <span class="muted-text">Enrolled {{ .AssignedAt }}</span>
+    </div>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No students are enrolled yet.</p>
+{{ end }}
+
+{{ if .CanAssignCourse }}
+<div class="section-card">
+  <h3>Enroll student</h3>
+  {{ if .AvailableStudents }}
+  <form method="POST" action="/courses/{{ .Course.ID }}/enrollments" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="student-id" class="item-title">Student</label>
+      <select id="student-id" name="student_id" class="form-item">
+        {{ range .AvailableStudents }}
+        <option value="{{ .ID }}">{{ .DisplayName }}{{ if .Username }} ({{ .Username }}){{ end }}</option>
+        {{ end }}
+      </select>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Enroll student</button>
+    </div>
+  </form>
+  {{ else }}
+  <p class="muted-text">All available student accounts are already enrolled in this course.</p>
+  {{ end }}
+</div>
+{{ end }}
+{{ end }}
+
+</div>
+
+<!-- Tab: Records (teacher/admin only) -->
+{{ if .CanManageCourse }}
+<div id="tab-records" class="tab-panel" role="tabpanel">
+
+<div class="section-heading">Completions</div>
+
+{{ if .Completions }}
+<div class="list-card-list">
+  {{ range .Completions }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .StudentDisplayName }}</div>
+    <div class="list-card-meta">
+      {{ if .StudentUsername }}<span class="muted-text">Username <code>{{ .StudentUsername }}</code></span>{{ end }}
+      <span class="badge {{ if eq .Status "completed" }}badge-success{{ end }}">{{ .Status }}</span>
+      <span class="muted-text">Completed {{ .CompletedAt }}</span>
+      {{ if .HasCertificate }}<span class="muted-text">Certificate <code>{{ .CertificateCode }}</code></span>{{ end }}
+    </div>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No course completions have been recorded yet.</p>
+{{ end }}
+
+{{ if .CanMarkCompletion }}
+<div class="section-card">
+  <h3>Mark completion</h3>
+  {{ if .Students }}
+  <form method="POST" action="/courses/{{ .Course.ID }}/completions" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="completion-student-id" class="item-title">Student</label>
+      <select id="completion-student-id" name="student_id" class="form-item">
+        {{ range .Students }}
+        <option value="{{ .ID }}">{{ .DisplayName }}{{ if .Username }} ({{ .Username }}){{ end }}</option>
+        {{ end }}
+      </select>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Mark completed</button>
+    </div>
+  </form>
+  {{ else }}
+  <p class="muted-text">Enroll students before recording course completion.</p>
+  {{ end }}
+</div>
+{{ end }}
+
+<div class="section-heading">Certificates</div>
+
+{{ if .Certificates }}
+<div class="list-card-list">
+  {{ range .Certificates }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .StudentDisplayName }}</div>
+    <div class="list-card-meta">
+      <span class="muted-text">Code <code>{{ .CertificateCode }}</code></span>
+      <span class="muted-text">Result <code>{{ .ResultSummary }}</code></span>
+      {{ if .GradeSummary }}<span class="muted-text">Grade <code>{{ .GradeSummary }}</code></span>{{ end }}
+      <span class="muted-text">Issued {{ .IssuedAt }}</span>
+      {{ if .IsRevoked }}<span class="badge badge-danger">revoked {{ .RevokedAt }}</span>{{ end }}
+    </div>
+    <p>
+      <a href="/certificates/verify?code={{ .CertificateCode }}" class="btn">Verify</a>
+      {{ if $.IsAdmin }}<a href="/chain/audit/certificate/{{ .ID }}" class="btn">Audit</a>{{ end }}
+      {{ if and $.CanRevokeCertificate (not .IsRevoked) }}
+      <form method="POST" action="/courses/{{ $.Course.ID }}/certificates/{{ .ID }}/revoke" class="inline-form" onsubmit="return confirm('Revoke this certificate? This action cannot be undone.');">
+        <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+        <button type="submit" class="btn btn-danger">Revoke</button>
+      </form>
+      {{ end }}
+    </p>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No certificates have been issued yet.</p>
+{{ end }}
+
+{{ if .CanAssignCourse }}
+<div class="section-card">
+  <h3>Issue certificate</h3>
+  {{ if .CertificateCandidates }}
+  <form method="POST" action="/courses/{{ .Course.ID }}/certificates" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="certificate-student-id" class="item-title">Completed student</label>
+      <select id="certificate-student-id" name="student_id" class="form-item">
+        {{ range .CertificateCandidates }}
+        <option value="{{ .StudentID }}">{{ .StudentDisplayName }}{{ if .StudentUsername }} ({{ .StudentUsername }}){{ end }}</option>
+        {{ end }}
+      </select>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Issue certificate</button>
+    </div>
+  </form>
+  {{ else }}
+  <p class="muted-text">Record a completion first, or revoke an active certificate before issuing another.</p>
+  {{ end }}
+</div>
+{{ end }}
+
+</div>
+{{ end }}
+
+<script>
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('tab-active'); });
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    b.classList.remove('tab-active');
+    b.setAttribute('aria-selected', 'false');
+    b.setAttribute('tabindex', '-1');
+  });
+  var panel = document.getElementById('tab-' + tabId);
+  var btn = document.querySelector('[data-tab="' + tabId + '"]');
+  if (panel) panel.classList.add('tab-active');
+  if (btn) {
+    btn.classList.add('tab-active');
+    btn.setAttribute('aria-selected', 'true');
+    btn.setAttribute('tabindex', '0');
+  }
+  history.replaceState(null, '', '#' + tabId);
+}
+
+document.querySelector('[role="tablist"]').addEventListener('keydown', function(e) {
+  var tabs = Array.from(this.querySelectorAll('[role="tab"]:not([disabled])'));
+  var idx = tabs.indexOf(document.activeElement);
+  if (idx === -1) return;
+  if (e.key === 'ArrowRight') {
+    tabs[(idx + 1) % tabs.length].focus();
+    e.preventDefault();
+  } else if (e.key === 'ArrowLeft') {
+    tabs[(idx - 1 + tabs.length) % tabs.length].focus();
+    e.preventDefault();
+  }
+});
+
+(function() {
+  var hash = window.location.hash.slice(1);
+  var valid = ['content', 'assignments', 'people', 'records'];
+  if (hash && valid.indexOf(hash) !== -1 && document.getElementById('tab-' + hash)) {
+    switchTab(hash);
+  } else {
+    var first = document.querySelector('[role="tab"]');
+    if (first) { first.setAttribute('tabindex', '0'); }
+  }
+})();
+</script>
+
+{{ template "foot" . }}

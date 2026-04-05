@@ -19,13 +19,26 @@ import (
 
 // User represents an authenticated account.
 type User struct {
-	ID          uuid.UUID
-	DisplayName string
-	Username    *string
-	Role        UserRole
-	HasPassword bool
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            uuid.UUID
+	DisplayName   string
+	Username      *string
+	Role          UserRole
+	HasPassword   bool
+	DeactivatedAt *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+// ManagedUser represents an admin-visible user record.
+type ManagedUser struct {
+	ID            uuid.UUID
+	DisplayName   string
+	Username      *string
+	Role          UserRole
+	HasPassword   bool
+	DeactivatedAt *time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // UserPasskey represents a stored WebAuthn credential.
@@ -111,13 +124,14 @@ func FinalizeSetupRegistration(ctx context.Context, input FinalizeSetupRegistrat
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO users (id, display_name, role, is_admin)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, display_name, username, role, password_hash IS NOT NULL, created_at, updated_at
+		RETURNING id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
 	`, input.UserID, displayName, role, role.IsAdmin()).Scan(
 		&user.ID,
 		&user.DisplayName,
 		&user.Username,
 		&storedRole,
 		&user.HasPassword,
+		&user.DeactivatedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	); err != nil {
@@ -164,15 +178,17 @@ func GetUserByID(ctx context.Context, id string) (*User, error) {
 	var user User
 
 	err := pool.QueryRow(ctx, `
-		SELECT id, display_name, username, role, password_hash IS NOT NULL, created_at, updated_at
+		SELECT id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
 		FROM users
 		WHERE id = $1
+		  AND deactivated_at IS NULL
 	`, id).Scan(
 		&user.ID,
 		&user.DisplayName,
 		&user.Username,
 		&user.Role,
 		&user.HasPassword,
+		&user.DeactivatedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -185,6 +201,53 @@ func GetUserByID(ctx context.Context, id string) (*User, error) {
 	}
 
 	return &user, nil
+}
+
+// ListManagedUsers returns all users for admin account management.
+func ListManagedUsers(ctx context.Context) ([]ManagedUser, error) {
+	if pool == nil {
+		return nil, ErrDatabaseConnectionNotInitialized
+	}
+
+	rows, err := pool.Query(ctx, `
+		SELECT id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
+		FROM users
+		ORDER BY deactivated_at IS NULL DESC, display_name ASC, created_at ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list users: %w", err)
+	}
+	defer rows.Close()
+
+	users := make([]ManagedUser, 0)
+	for rows.Next() {
+		var (
+			user    ManagedUser
+			rawRole string
+		)
+
+		if err := rows.Scan(
+			&user.ID,
+			&user.DisplayName,
+			&user.Username,
+			&rawRole,
+			&user.HasPassword,
+			&user.DeactivatedAt,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+
+		user.Role = UserRole(rawRole)
+		users = append(users, user)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating users: %w", err)
+	}
+
+	return users, nil
 }
 
 // GetUserByWebAuthnID resolves a user by WebAuthn user handle bytes.

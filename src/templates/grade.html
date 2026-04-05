@@ -1,0 +1,100 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>Grade</h2>
+  <div class="page-header-actions">
+    <a href="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}" class="btn">Assignment</a>
+    <a href="/courses/{{ .Course.ID }}" class="btn">Course</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Assignment context</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Course <code>{{ .Course.Code }}</code></span>
+    <span class="muted-text">Assignment <code>{{ .Assignment.Title }}</code></span>
+    <span class="muted-text">Maximum grade <code>{{ .Assignment.MaxGrade }}</code></span>
+  </div>
+</div>
+
+{{ if .Submission }}
+<div class="section-card">
+  <h3>Submission</h3>
+  <div class="list-card-meta">
+    {{ if .Submission.StudentDisplayName }}<span class="muted-text">Student <code>{{ .Submission.StudentDisplayName }}</code></span>{{ end }}
+    {{ if .Submission.StudentUsername }}<span class="muted-text">Username <code>{{ .Submission.StudentUsername }}</code></span>{{ end }}
+    <span class="muted-text">Version <code>{{ .Submission.Version }}</code></span>
+    <span class="muted-text">File <code>{{ .Submission.FileName }}</code></span>
+    <span class="muted-text">SHA-256 <code class="hash">{{ .Submission.FileSHA256 }}</code></span>
+    <span class="muted-text">Submitted {{ .Submission.SubmittedAt }}</span>
+  </div>
+  {{ if .CanPublishGrade }}
+  <p><a href="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}/submissions/{{ .Submission.ID }}" class="btn">Open receipt</a></p>
+  {{ end }}
+</div>
+{{ end }}
+
+{{ if .CanPublishGrade }}
+<div class="section-card">
+  <h3>{{ if .Grade }}Revise grade{{ else }}Publish grade{{ end }}</h3>
+  <form method="POST" action="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}/submissions/{{ .Submission.ID }}/grade" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="grade-value" class="item-title">Grade value</label>
+      <input type="number" id="grade-value" name="grade_value" class="form-item" min="0" step="0.01" value="{{ if .Grade }}{{ .Grade.GradeValue }}{{ else }}0{{ end }}" required />
+    </div>
+    <div class="form-group">
+      <label for="feedback-text" class="item-title">Feedback</label>
+      <textarea id="feedback-text" name="feedback_text" class="form-item" rows="6" placeholder="Provide feedback for the student.">{{ if .Grade }}{{ .Grade.FeedbackText }}{{ end }}</textarea>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">{{ if .Grade }}Publish revision{{ else }}Publish grade{{ end }}</button>
+    </div>
+  </form>
+</div>
+{{ end }}
+
+{{ if .Grade }}
+<div class="section-card">
+  <h3>Current grade</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Grade <code>{{ .Grade.GradeValue }}</code></span>
+    <span class="muted-text">Version <code>{{ .Grade.Version }}</code></span>
+    <span class="muted-text">Published {{ .Grade.PublishedAt }}</span>
+    <span class="muted-text">Ledger event <code>{{ .Grade.EventType }}</code></span>
+  </div>
+  <p>{{ if .Grade.FeedbackText }}{{ .Grade.FeedbackText }}{{ else }}No feedback recorded.{{ end }}</p>
+</div>
+
+{{ if .IsAdmin }}
+<details class="section-card">
+  <summary><h3 style="display:inline">Verification</h3></summary>
+  <div class="list-card-meta" style="margin-top:0.5rem">
+    <span class="muted-text">Stored commitment <code class="hash">{{ .Grade.CommitmentHash }}</code></span>
+    <span class="muted-text">Computed commitment <code class="hash">{{ .Grade.ComputedCommitmentHash }}</code></span>
+    <span class="muted-text">Block height <code>{{ .Grade.BlockHeight }}</code></span>
+    <span class="muted-text">Event hash <code class="hash">{{ .Grade.EventHash }}</code></span>
+    <span class="muted-text">Block hash <code class="hash">{{ .Grade.BlockHash }}</code></span>
+  </div>
+  <div class="list-card-meta">
+    <span class="badge {{ if .Grade.StoredCommitmentMatches }}badge-success{{ else }}badge-danger{{ end }}">Stored commitment {{ if .Grade.StoredCommitmentMatches }}verified{{ else }}mismatch{{ end }}</span>
+    <span class="badge {{ if .Grade.OnChainCommitmentMatches }}badge-success{{ else }}badge-danger{{ end }}">On-chain commitment {{ if .Grade.OnChainCommitmentMatches }}verified{{ else }}mismatch{{ end }}</span>
+  </div>
+  {{ if .Grade.ID }}<p><a href="/chain/audit/grade/{{ .Grade.ID }}" class="btn">Audit trail</a></p>{{ end }}
+</details>
+{{ end }}
+{{ else }}
+<div class="section-card">
+  <h3>No grade published yet</h3>
+  <p class="muted-text">This assignment does not have a recorded grade for the current student/submission yet.</p>
+</div>
+{{ end }}
+
+{{ template "foot" . }}

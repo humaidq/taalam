@@ -3,6 +3,7 @@
     <footer>
       <p>Taalam project - Humaid Alqasimi{{ if .AppVersion }} - {{ .AppVersion }}{{ end }}</p>
     </footer>
+    {{ if .IncludeLessonViewerJS }}<script src="/lesson-viewer.js" defer></script>{{ end }}
   </body>
 </html>
 {{ end }}

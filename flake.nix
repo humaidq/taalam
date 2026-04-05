@@ -1,7 +1,7 @@
 # Copyright 2026 Humaid Alqasimi
 # SPDX-License-Identifier: Apache-2.0
 {
-  description = "taalam: web app scaffold";
+  description = "taalam: web app";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";

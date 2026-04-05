@@ -249,6 +249,60 @@
   {{ end }}
 </div>
 {{ end }}
+
+<div class="section-heading">Users</div>
+
+{{ if .ManagedUsers }}
+<div class="list-card-list">
+  {{ range .ManagedUsers }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .DisplayName }}</div>
+    <div class="list-card-meta">
+      <span class="badge">{{ .RoleLabel }}</span>
+      {{ if .Username }}<span class="muted-text">Username <code>{{ .Username }}</code></span>{{ end }}
+      <span class="muted-text">Created {{ .CreatedAt }}</span>
+      <span class="muted-text">Updated {{ .UpdatedAt }}</span>
+      {{ if .HasPassword }}<span class="muted-text">Password set</span>{{ else }}<span class="muted-text">No password</span>{{ end }}
+      {{ if .IsDeactivated }}<span class="badge badge-danger">Deactivated {{ .DeactivatedAt }}</span>{{ end }}
+    </div>
+    {{ if not .IsDeactivated }}
+    <form method="POST" action="/security/users/{{ .ID }}" class="auth-form-stack">
+      <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="managed-display-name-{{ .ID }}" class="item-title">Display name</label>
+          <input type="text" id="managed-display-name-{{ .ID }}" name="display_name" class="form-item" value="{{ .DisplayName }}" required />
+        </div>
+        <div class="form-group">
+          <label for="managed-username-{{ .ID }}" class="item-title">Username</label>
+          <input type="text" id="managed-username-{{ .ID }}" name="username" class="form-item" value="{{ .Username }}" />
+        </div>
+        <div class="form-group">
+          <label for="managed-role-{{ .ID }}" class="item-title">Role</label>
+          <select id="managed-role-{{ .ID }}" name="role" class="form-item">
+            <option value="student"{{ if eq .Role "student" }} selected{{ end }}>Student</option>
+            <option value="teacher"{{ if eq .Role "teacher" }} selected{{ end }}>Teacher</option>
+            <option value="admin"{{ if eq .Role "admin" }} selected{{ end }}>Admin</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <button type="submit" class="btn">Save user</button>
+      </div>
+    </form>
+    {{ if .CanDeactivate }}
+    <form method="POST" action="/security/users/{{ .ID }}/deactivate" class="inline-form" onsubmit="return confirm('Deactivate this user? They will no longer be able to sign in.');">
+      <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+      <button type="submit" class="btn btn-danger">Deactivate</button>
+    </form>
+    {{ end }}
+    {{ end }}
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No users found.</p>
+{{ end }}
 {{ end }}
 
 {{ template "foot" . }}

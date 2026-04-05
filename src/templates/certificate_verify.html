@@ -1,0 +1,125 @@
+{{ template "head" . }}
+
+<div class="page-header">
+  <h2>Verify certificate</h2>
+  <div class="page-header-actions">
+    <a href="/" class="btn">Home</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Certificate lookup</h3>
+  <p class="muted-text">Enter a certificate code to verify its authenticity. Optionally provide expected values to check the certificate's claims against the record.</p>
+  <form method="GET" action="/certificates/verify" class="auth-form-stack">
+    <div class="form-group">
+      <label for="certificate-code" class="item-title">Certificate code</label>
+      <input type="text" id="certificate-code" name="code" class="form-item" value="{{ .CertificateCode }}" placeholder="CERT-XXXXXXXXXXXX" required />
+    </div>
+    <details class="add-item-details">
+      <summary class="add-item-summary">Check claims (optional)</summary>
+      <p class="muted-text">Fill in any values you expect the certificate to contain. Each provided field will be checked against the official record.</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="claim-student" class="item-title">Student name</label>
+          <input type="text" id="claim-student" name="student" class="form-item" value="{{ .ClaimStudent }}" placeholder="e.g. Jane Smith" />
+        </div>
+        <div class="form-group">
+          <label for="claim-course" class="item-title">Course code</label>
+          <input type="text" id="claim-course" name="course" class="form-item" value="{{ .ClaimCourse }}" placeholder="e.g. CS8602" />
+        </div>
+        <div class="form-group">
+          <label for="claim-result" class="item-title">Result</label>
+          <input type="text" id="claim-result" name="result" class="form-item" value="{{ .ClaimResult }}" placeholder="e.g. passed" />
+        </div>
+        <div class="form-group">
+          <label for="claim-grade" class="item-title">Grade</label>
+          <input type="text" id="claim-grade" name="grade" class="form-item" value="{{ .ClaimGrade }}" placeholder="e.g. 92.5/100" />
+        </div>
+      </div>
+    </details>
+    <div class="form-group">
+      <button type="submit" class="btn">Verify</button>
+    </div>
+  </form>
+</div>
+
+{{ if .VerificationError }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Verification failed</h5>
+  <p>{{ .VerificationError }}</p>
+</div>
+{{ end }}
+
+{{ if .Verification }}
+
+{{ if .Verification.Revoked }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Certificate revoked</h5>
+  <p>This certificate was revoked{{ if .Verification.RevokedAt }} on {{ .Verification.RevokedAt }}{{ end }} and is no longer valid.</p>
+</div>
+{{ else if .Verification.HashMatches }}
+<div class="alert alert-green">
+  <h5 class="alert-title">Certificate verified</h5>
+  {{ if .Verification.LegacyCompatible }}
+  <p>This certificate matches the immutable blockchain snapshot. A legacy timestamp precision issue affects direct hash recomputation for this older record.</p>
+  {{ else }}
+  <p>This certificate is authentic. The record hash matches the stored value.</p>
+  {{ end }}
+</div>
+{{ else }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Hash mismatch</h5>
+  <p>The certificate hash does not match the stored record. The certificate may have been tampered with.</p>
+</div>
+{{ end }}
+
+<div class="section-card">
+  <h3>Certificate record</h3>
+  <div class="cert-record-grid">
+    <span class="muted-text">Code</span><span>{{ .Verification.CertificateCode }}</span>
+    <span class="muted-text">Student</span><span>{{ .Verification.StudentDisplayName }}</span>
+    <span class="muted-text">Course</span><span>{{ .Verification.CourseCode }} — {{ .Verification.CourseTitle }}</span>
+    <span class="muted-text">Result</span><span>{{ .Verification.ResultSummary }}</span>
+    {{ if .Verification.GradeSummary }}<span class="muted-text">Grade</span><span>{{ .Verification.GradeSummary }}</span>{{ end }}
+    <span class="muted-text">Issued</span><span>{{ .Verification.IssuedAt }}</span>
+    <span class="muted-text">Status</span><span>{{ if .Verification.Revoked }}<span class="badge badge-danger">revoked</span>{{ else }}<span class="badge badge-success">active</span>{{ end }}</span>
+  </div>
+</div>
+
+{{ if or .Verification.StudentClaim .Verification.CourseClaim .Verification.ResultClaim .Verification.GradeClaim }}
+<div class="section-card">
+  <h3>Claim checks</h3>
+  <div class="cert-record-grid">
+    {{ if .Verification.StudentClaim }}
+    <span class="muted-text">Student</span>
+    <span><span class="badge {{ if .Verification.StudentMatches }}badge-success{{ else }}badge-danger{{ end }}">{{ if .Verification.StudentMatches }}matches{{ else }}mismatch{{ end }}</span> <span class="muted-text">claimed: {{ .Verification.StudentClaim }}</span></span>
+    {{ end }}
+    {{ if .Verification.CourseClaim }}
+    <span class="muted-text">Course</span>
+    <span><span class="badge {{ if .Verification.CourseMatches }}badge-success{{ else }}badge-danger{{ end }}">{{ if .Verification.CourseMatches }}matches{{ else }}mismatch{{ end }}</span> <span class="muted-text">claimed: {{ .Verification.CourseClaim }}</span></span>
+    {{ end }}
+    {{ if .Verification.ResultClaim }}
+    <span class="muted-text">Result</span>
+    <span><span class="badge {{ if .Verification.ResultMatches }}badge-success{{ else }}badge-danger{{ end }}">{{ if .Verification.ResultMatches }}matches{{ else }}mismatch{{ end }}</span> <span class="muted-text">claimed: {{ .Verification.ResultClaim }}</span></span>
+    {{ end }}
+    {{ if .Verification.GradeClaim }}
+    <span class="muted-text">Grade</span>
+    <span><span class="badge {{ if .Verification.GradeMatches }}badge-success{{ else }}badge-danger{{ end }}">{{ if .Verification.GradeMatches }}matches{{ else }}mismatch{{ end }}</span> <span class="muted-text">claimed: {{ .Verification.GradeClaim }}</span></span>
+    {{ end }}
+  </div>
+</div>
+{{ end }}
+
+<div class="section-card">
+  <h3>Cryptographic proof</h3>
+  <div class="cert-record-grid">
+    <span class="muted-text">Stored hash</span><span><code class="hash">{{ .Verification.CertificateHash }}</code></span>
+    <span class="muted-text">Computed hash</span><span><code class="hash">{{ .Verification.ComputedHash }}</code></span>
+    {{ if .Verification.LegacyCompatible }}<span class="muted-text">Verification mode</span><span><span class="badge badge-success">legacy compatible</span></span>{{ end }}
+    <span class="muted-text">Integrity</span><span><span class="badge {{ if .Verification.HashMatches }}badge-success{{ else }}badge-danger{{ end }}">{{ if .Verification.HashMatches }}verified{{ else }}mismatch{{ end }}</span></span>
+  </div>
+</div>
+
+{{ end }}
+
+{{ template "foot" . }}

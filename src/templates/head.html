@@ -28,6 +28,8 @@
         <div class="nav-menu">
           <a href="/"{{ if .IsDashboard }} class="nav-active"{{ end }}>Home</a>
           {{ if .IsAuthenticated }}
+          <a href="/courses"{{ if .IsCourses }} class="nav-active"{{ end }}>Courses</a>
+          {{ if .IsAdmin }}<a href="/chain"{{ if .IsChain }} class="nav-active"{{ end }}>Chain</a>{{ end }}
           <a href="/security"{{ if .IsSecurity }} class="nav-active"{{ end }}>Account</a>
           {{ else }}
           <a href="/login">Log in</a>
@@ -37,6 +39,21 @@
       {{ end }}
     </header>
     <main>
+      {{ if .Breadcrumbs }}
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        {{ range .Breadcrumbs }}
+        <span class="breadcrumb-segment">
+          {{ if .IsCurrent }}
+          <span class="breadcrumb-current" aria-current="page">{{ .Name }}</span>
+          {{ else if .URL }}
+          <a href="{{ .URL }}" class="breadcrumb-item">{{ .Name }}</a>
+          {{ else }}
+          <span class="breadcrumb-current">{{ .Name }}</span>
+          {{ end }}
+        </span>
+        {{ end }}
+      </nav>
+      {{ end }}
       {{ if .Flash }}
         {{ $flash := .Flash }}
         {{ if eq $flash.Type "error" }}

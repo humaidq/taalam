@@ -34,6 +34,7 @@ func Healthz(c flamego.Context) {
 // Dashboard renders the main landing page.
 func Dashboard(c flamego.Context, t template.Template, data template.Data) {
 	setPage(data, "Home")
+	setBreadcrumbs(data, []BreadcrumbItem{{Name: "Home", IsCurrent: true}})
 	data["IsDashboard"] = true
 
 	userCount, err := db.CountUsers(c.Request().Context())

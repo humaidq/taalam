@@ -78,6 +78,10 @@ func start(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("failed to sync schema: %w", err)
 	}
 
+	if err := db.EnsureBlockchainReady(ctx); err != nil {
+		return fmt.Errorf("failed to initialize blockchain: %w", err)
+	}
+
 	f := flamego.New()
 	configureEmptyNotFoundHandler(f)
 	f.Use(flamego.Recovery())
@@ -130,19 +134,65 @@ func start(ctx context.Context, cmd *cli.Command) error {
 	f.Post("/setup", csrf.Validate, routes.SetupSubmit)
 	f.Post("/webauthn/login/start", csrf.Validate, routes.PasskeyLoginStart)
 	f.Post("/webauthn/login/finish", csrf.Validate, routes.PasskeyLoginFinish)
+	f.Get("/certificates/verify", routes.CertificateVerify)
 
 	f.Group("", func() {
 		f.Post("/logout", csrf.Validate, routes.Logout)
+		f.Get("/courses", routes.Courses)
+		f.Get("/courses/{id}", routes.CourseDetail)
+		f.Get("/courses/{id}/lessons/{lessonID}", routes.LessonDetail)
+		f.Get("/courses/{id}/assignments/{assignmentID}", routes.AssignmentDetail)
+		f.Get("/courses/{id}/assignments/{assignmentID}/grade", routes.StudentAssignmentGrade)
+		f.Get("/courses/{id}/assignments/{assignmentID}/submissions/{submissionID}/grade", routes.SubmissionGrade)
+		f.Get("/courses/{id}/assignments/{assignmentID}/submissions/{submissionID}", routes.SubmissionReceipt)
 		f.Get("/security", routes.Security)
 		f.Post("/security/account/username", csrf.Validate, routes.UpdateAccountUsername)
 		f.Post("/security/account/password", csrf.Validate, routes.UpdateAccountPassword)
 		f.Post("/webauthn/passkey/start", csrf.Validate, routes.PasskeyRegistrationStart)
 		f.Post("/webauthn/passkey/finish", csrf.Validate, routes.PasskeyRegistrationFinish)
 		f.Post("/security/passkeys/{id}/delete", csrf.Validate, routes.DeletePasskey)
-		f.Post("/security/invites", csrf.Validate, routes.CreateUserInvite)
-		f.Post("/security/users/password", csrf.Validate, routes.CreatePasswordUser)
-		f.Post("/security/invites/{id}/regenerate", csrf.Validate, routes.RegenerateUserInvite)
-		f.Post("/security/invites/{id}/delete", csrf.Validate, routes.DeleteUserInvite)
+
+		f.Group("", func() {
+			f.Get("/courses/{id}/units/new", routes.NewUnitForm)
+			f.Get("/courses/{id}/units/{unitID}/lessons/new", routes.NewLessonForm)
+			f.Get("/courses/{id}/assignments/new", routes.NewAssignmentForm)
+			f.Post("/courses/{id}/units", csrf.Validate, routes.CreateCourseUnit)
+			f.Post("/courses/{id}/units/{unitID}/lessons", csrf.Validate, routes.CreateUnitLesson)
+			f.Post("/courses/{id}/lessons/{lessonID}", csrf.Validate, routes.UpdateUnitLesson)
+			f.Post("/courses/{id}/lessons/{lessonID}/delete", csrf.Validate, routes.DeleteUnitLesson)
+			f.Post("/courses/{id}/lessons/{lessonID}/slides", csrf.Validate, routes.CreateLessonSlide)
+			f.Post("/courses/{id}/lessons/{lessonID}/slides/{slideID}", csrf.Validate, routes.UpdateLessonSlide)
+			f.Post("/courses/{id}/lessons/{lessonID}/slides/{slideID}/delete", csrf.Validate, routes.DeleteLessonSlide)
+			f.Post("/courses/{id}/assignments", csrf.Validate, routes.CreateAssignment)
+			f.Post("/courses/{id}/assignments/{assignmentID}", csrf.Validate, routes.UpdateAssignment)
+			f.Post("/courses/{id}/assignments/{assignmentID}/delete", csrf.Validate, routes.DeleteAssignment)
+			f.Post("/courses/{id}/assignments/{assignmentID}/submissions/{submissionID}/grade", csrf.Validate, routes.PublishSubmissionGrade)
+			f.Post("/courses/{id}/completions", csrf.Validate, routes.MarkCourseCompletion)
+		}, routes.RequireTeacher)
+
+		f.Group("", func() {
+			f.Post("/courses/{id}/lessons/{lessonID}/complete", csrf.Validate, routes.MarkLessonComplete)
+			f.Post("/courses/{id}/assignments/{assignmentID}/submissions", csrf.Validate, routes.CreateSubmission)
+		}, routes.RequireStudent)
+
+		f.Group("", func() {
+			f.Get("/courses/new", routes.NewCourseForm)
+			f.Get("/chain", routes.ChainExplorer)
+			f.Get("/chain/audit/{entityType}/{entityID}", routes.EntityAudit)
+			f.Post("/courses", csrf.Validate, routes.CreateCourse)
+			f.Post("/courses/{id}", csrf.Validate, routes.UpdateCourse)
+			f.Post("/courses/{id}/delete", csrf.Validate, routes.DeleteCourse)
+			f.Post("/courses/{id}/instructors", csrf.Validate, routes.AssignCourseInstructor)
+			f.Post("/courses/{id}/enrollments", csrf.Validate, routes.EnrollCourseStudent)
+			f.Post("/courses/{id}/certificates", csrf.Validate, routes.IssueCertificate)
+			f.Post("/courses/{id}/certificates/{certificateID}/revoke", csrf.Validate, routes.RevokeCertificate)
+			f.Post("/security/invites", csrf.Validate, routes.CreateUserInvite)
+			f.Post("/security/users/password", csrf.Validate, routes.CreatePasswordUser)
+			f.Post("/security/users/{id}", csrf.Validate, routes.UpdateManagedUser)
+			f.Post("/security/users/{id}/deactivate", csrf.Validate, routes.DeactivateUser)
+			f.Post("/security/invites/{id}/regenerate", csrf.Validate, routes.RegenerateUserInvite)
+			f.Post("/security/invites/{id}/delete", csrf.Validate, routes.DeleteUserInvite)
+		}, routes.RequireAdmin)
 	}, routes.RequireAuth)
 
 	port := cmd.String("port")

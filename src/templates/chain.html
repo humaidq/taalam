@@ -1,0 +1,64 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>Chain explorer</h2>
+  <div class="page-header-actions">
+    <a href="/" class="btn">Home</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Chain head</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Head height <code>{{ .HeadHeight }}</code></span>
+    <span class="muted-text">Head hash <code class="hash">{{ .HeadHash }}</code></span>
+  </div>
+  <p><a href="/chain?verify=1" class="btn">Run full verification</a></p>
+</div>
+
+{{ if .Verification }}
+<div class="section-card">
+  <h3>Verification result</h3>
+  <div class="list-card-meta">
+    <span class="badge {{ if .Verification.Valid }}badge-success{{ else }}badge-danger{{ end }}">{{ if .Verification.Valid }}valid{{ else }}invalid{{ end }}</span>
+    <span class="muted-text">Checked <code>{{ .Verification.CheckedBlocks }}</code> blocks</span>
+    <span class="muted-text">Head height <code>{{ .Verification.HeadHeight }}</code></span>
+    <span class="muted-text">Head hash <code class="hash">{{ .Verification.HeadHash }}</code></span>
+    {{ if .Verification.Failure }}<span class="muted-text">Failure <code>{{ .Verification.Failure }}</code></span>{{ end }}
+  </div>
+</div>
+{{ end }}
+
+{{ if .Records }}
+<div class="list-card-list">
+  {{ range .Records }}
+  <div class="list-card">
+    <div class="list-card-title">Block {{ .BlockHeight }} - {{ .EventType }}</div>
+    <div class="list-card-meta">
+      <span class="muted-text">Entity <code>{{ .EntityType }}</code>{{ if .EntityID }} / <code>{{ .EntityID }}</code>{{ end }}</span>
+      <span class="muted-text">Actor <code>{{ .ActorLabel }}</code></span>
+      <span class="muted-text">Occurred {{ .OccurredAt }}</span>
+      <span class="muted-text">Block hash <code class="hash">{{ .BlockHash }}</code></span>
+      <span class="muted-text">Event hash <code class="hash">{{ .EventHash }}</code></span>
+    </div>
+    {{ if .EntityID }}
+    <p><a href="/chain/audit/{{ .EntityType }}/{{ .EntityID }}" class="btn">Entity audit</a></p>
+    {{ end }}
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<div class="section-card">
+  <h3>No records yet</h3>
+  <p class="muted-text">The blockchain explorer is empty.</p>
+</div>
+{{ end }}
+
+{{ template "foot" . }}

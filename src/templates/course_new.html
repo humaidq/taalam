@@ -1,0 +1,41 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>New course</h2>
+  <div class="page-header-actions">
+    <a href="/courses" class="btn">Courses</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Create course</h3>
+  <form method="POST" action="/courses" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="course-code" class="item-title">Course code</label>
+        <input type="text" id="course-code" name="code" class="form-item" placeholder="CS8602" required />
+      </div>
+      <div class="form-group">
+        <label for="course-term" class="item-title">Term</label>
+        <input type="text" id="course-term" name="term" class="form-item" placeholder="Spring 2026" required />
+      </div>
+    </div>
+    <div class="form-group">
+      <label for="course-title" class="item-title">Course title</label>
+      <input type="text" id="course-title" name="title" class="form-item" placeholder="Blockchain-Backed Learning Systems" required />
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Create course</button>
+    </div>
+  </form>
+</div>
+
+{{ template "foot" . }}

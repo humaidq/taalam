@@ -36,6 +36,31 @@ func (r UserRole) IsAdmin() bool {
 	return r == RoleAdmin
 }
 
+// IsTeacher reports whether the role grants teacher access.
+func (r UserRole) IsTeacher() bool {
+	return r == RoleTeacher
+}
+
+// IsStudent reports whether the role grants student access.
+func (r UserRole) IsStudent() bool {
+	return r == RoleStudent
+}
+
+// Satisfies reports whether the role satisfies a required role.
+//
+// Admin satisfies all current role checks in the MVP.
+func (r UserRole) Satisfies(required UserRole) bool {
+	if !r.Valid() || !required.Valid() {
+		return false
+	}
+
+	if r.IsAdmin() {
+		return true
+	}
+
+	return r == required
+}
+
 // Valid reports whether the role is supported.
 func (r UserRole) Valid() bool {
 	switch r {
@@ -82,6 +107,21 @@ func NormalizeUsername(raw string) (string, error) {
 	}
 
 	return username, nil
+}
+
+// NormalizeOptionalUsername validates and normalizes an optional username.
+func NormalizeOptionalUsername(raw string) (*string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, nil
+	}
+
+	normalized, err := NormalizeUsername(trimmed)
+	if err != nil {
+		return nil, err
+	}
+
+	return &normalized, nil
 }
 
 // ValidatePassword checks that a password meets minimum requirements.
@@ -147,9 +187,10 @@ func AuthenticateUserWithPassword(ctx context.Context, username string, password
 	)
 
 	err = pool.QueryRow(ctx, `
-		SELECT id, display_name, username, role, password_hash IS NOT NULL, password_hash, created_at, updated_at
+		SELECT id, display_name, username, role, password_hash IS NOT NULL, password_hash, deactivated_at, created_at, updated_at
 		FROM users
 		WHERE username = $1
+		  AND deactivated_at IS NULL
 	`, normalizedUsername).Scan(
 		&user.ID,
 		&user.DisplayName,
@@ -157,6 +198,7 @@ func AuthenticateUserWithPassword(ctx context.Context, username string, password
 		&storedRole,
 		&user.HasPassword,
 		&passwordHash,
+		&user.DeactivatedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -311,13 +353,14 @@ func UpdateUsername(ctx context.Context, userID string, username string) (*User,
 		UPDATE users
 		SET username = $1
 		WHERE id = $2
-		RETURNING id, display_name, username, role, password_hash IS NOT NULL, created_at, updated_at
+		RETURNING id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
 	`, normalizedUsername, userID).Scan(
 		&user.ID,
 		&user.DisplayName,
 		&user.Username,
 		&storedRole,
 		&user.HasPassword,
+		&user.DeactivatedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -361,6 +404,228 @@ func SetUserPassword(ctx context.Context, userID string, password string) error 
 	return nil
 }
 
+// UpdateManagedUserInput defines admin-managed account updates.
+type UpdateManagedUserInput struct {
+	UserID      string
+	DisplayName string
+	Username    string
+	Role        UserRole
+	UpdatedBy   string
+}
+
+// UpdateManagedUser updates a user's profile and role.
+func UpdateManagedUser(ctx context.Context, input UpdateManagedUserInput) (*ManagedUser, error) {
+	if pool == nil {
+		return nil, ErrDatabaseConnectionNotInitialized
+	}
+
+	userID := strings.TrimSpace(input.UserID)
+	updatedBy := strings.TrimSpace(input.UpdatedBy)
+	displayName := strings.TrimSpace(input.DisplayName)
+	if _, err := uuid.Parse(userID); err != nil {
+		return nil, ErrUserNotFound
+	}
+	if _, err := uuid.Parse(updatedBy); err != nil {
+		return nil, ErrInvalidCreatorID
+	}
+	if displayName == "" {
+		return nil, ErrDisplayNameRequired
+	}
+
+	role, err := NormalizeRole(string(input.Role))
+	if err != nil {
+		return nil, err
+	}
+	username, err := NormalizeOptionalUsername(input.Username)
+	if err != nil {
+		return nil, err
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin user update transaction: %w", err)
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			logger.Warn("failed to rollback user update transaction", "error", rollbackErr)
+		}
+	}()
+
+	if err := requireUserRoleTx(ctx, tx, updatedBy, RoleAdmin); err != nil {
+		return nil, err
+	}
+
+	current, err := getManagedUserByIDTx(ctx, tx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if current.DeactivatedAt != nil {
+		return nil, ErrUserDeactivated
+	}
+	if current.Role == RoleAdmin && role != RoleAdmin {
+		if err := ensureAnotherActiveAdminTx(ctx, tx, current.ID.String()); err != nil {
+			return nil, err
+		}
+	}
+
+	var (
+		user    ManagedUser
+		rawRole string
+	)
+	err = tx.QueryRow(ctx, `
+		UPDATE users
+		SET display_name = $2,
+		    username = $3,
+		    role = $4,
+		    is_admin = $5
+		WHERE id = $1
+		RETURNING id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
+	`, userID, displayName, username, role, role.IsAdmin()).Scan(
+		&user.ID,
+		&user.DisplayName,
+		&user.Username,
+		&rawRole,
+		&user.HasPassword,
+		&user.DeactivatedAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		if isUniqueViolation(err) {
+			return nil, ErrUsernameTaken
+		}
+
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	user.Role = UserRole(rawRole)
+
+	if err := tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("failed to commit user update transaction: %w", err)
+	}
+
+	return &user, nil
+}
+
+// DeactivateUser deactivates a user account without deleting historical records.
+func DeactivateUser(ctx context.Context, actorUserID string, targetUserID string) error {
+	if pool == nil {
+		return ErrDatabaseConnectionNotInitialized
+	}
+
+	actorUserID = strings.TrimSpace(actorUserID)
+	targetUserID = strings.TrimSpace(targetUserID)
+	if _, err := uuid.Parse(actorUserID); err != nil {
+		return ErrInvalidCreatorID
+	}
+	if _, err := uuid.Parse(targetUserID); err != nil {
+		return ErrUserNotFound
+	}
+	if actorUserID == targetUserID {
+		return ErrCannotDeactivateCurrentUser
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin user deactivation transaction: %w", err)
+	}
+	defer func() {
+		if rollbackErr := tx.Rollback(ctx); rollbackErr != nil && !errors.Is(rollbackErr, pgx.ErrTxClosed) {
+			logger.Warn("failed to rollback user deactivation transaction", "error", rollbackErr)
+		}
+	}()
+
+	if err := requireUserRoleTx(ctx, tx, actorUserID, RoleAdmin); err != nil {
+		return err
+	}
+
+	current, err := getManagedUserByIDTx(ctx, tx, targetUserID)
+	if err != nil {
+		return err
+	}
+	if current.DeactivatedAt != nil {
+		return ErrUserAlreadyDeactivated
+	}
+	if current.Role == RoleAdmin {
+		if err := ensureAnotherActiveAdminTx(ctx, tx, current.ID.String()); err != nil {
+			return err
+		}
+	}
+
+	command, err := tx.Exec(ctx, `
+		UPDATE users
+		SET deactivated_at = NOW()
+		WHERE id = $1
+		  AND deactivated_at IS NULL
+	`, targetUserID)
+	if err != nil {
+		return fmt.Errorf("failed to deactivate user: %w", err)
+	}
+	if command.RowsAffected() == 0 {
+		return ErrUserAlreadyDeactivated
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit user deactivation transaction: %w", err)
+	}
+
+	return nil
+}
+
+func getManagedUserByIDTx(ctx context.Context, tx pgx.Tx, userID string) (*ManagedUser, error) {
+	var (
+		user    ManagedUser
+		rawRole string
+	)
+
+	err := tx.QueryRow(ctx, `
+		SELECT id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
+		FROM users
+		WHERE id = $1
+	`, userID).Scan(
+		&user.ID,
+		&user.DisplayName,
+		&user.Username,
+		&rawRole,
+		&user.HasPassword,
+		&user.DeactivatedAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrUserNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to load user: %w", err)
+	}
+
+	user.Role = UserRole(rawRole)
+
+	return &user, nil
+}
+
+func ensureAnotherActiveAdminTx(ctx context.Context, tx pgx.Tx, excludedUserID string) error {
+	var count int
+	err := tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM users
+		WHERE role = $1
+		  AND deactivated_at IS NULL
+		  AND id <> $2
+	`, RoleAdmin, excludedUserID).Scan(&count)
+	if err != nil {
+		return fmt.Errorf("failed to count active admins: %w", err)
+	}
+	if count == 0 {
+		return ErrActiveAdminRequired
+	}
+
+	return nil
+}
+
 func insertUser(ctx context.Context, userID uuid.UUID, displayName string, username *string, passwordHash *string, role UserRole) (*User, error) {
 	if pool == nil {
 		return nil, ErrDatabaseConnectionNotInitialized
@@ -374,13 +639,14 @@ func insertUser(ctx context.Context, userID uuid.UUID, displayName string, usern
 	err := pool.QueryRow(ctx, `
 		INSERT INTO users (id, display_name, username, password_hash, role, is_admin)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, display_name, username, role, password_hash IS NOT NULL, created_at, updated_at
+		RETURNING id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
 	`, userID, displayName, username, passwordHash, role, role.IsAdmin()).Scan(
 		&user.ID,
 		&user.DisplayName,
 		&user.Username,
 		&storedRole,
 		&user.HasPassword,
+		&user.DeactivatedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -406,13 +672,14 @@ func insertUserTx(ctx context.Context, tx pgx.Tx, userID uuid.UUID, displayName 
 	err := tx.QueryRow(ctx, `
 		INSERT INTO users (id, display_name, username, password_hash, role, is_admin)
 		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, display_name, username, role, password_hash IS NOT NULL, created_at, updated_at
+		RETURNING id, display_name, username, role, password_hash IS NOT NULL, deactivated_at, created_at, updated_at
 	`, userID, displayName, username, passwordHash, role, role.IsAdmin()).Scan(
 		&user.ID,
 		&user.DisplayName,
 		&user.Username,
 		&storedRole,
 		&user.HasPassword,
+		&user.DeactivatedAt,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)

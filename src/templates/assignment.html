@@ -1,0 +1,149 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <h2>{{ .Assignment.Title }}</h2>
+  <div class="page-header-actions">
+    <a href="/courses/{{ .Course.ID }}" class="btn">Course</a>
+    <a href="/courses" class="btn">Courses</a>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Assignment overview</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Course <code>{{ .Course.Code }}</code></span>
+    <span class="muted-text">Term <code>{{ .Course.Term }}</code></span>
+    <span class="muted-text">Due {{ .Assignment.DueAt }}</span>
+    <span class="muted-text">Max grade <code>{{ .Assignment.MaxGrade }}</code></span>
+    <span class="muted-text">Published {{ .Assignment.CreatedAt }}</span>
+  </div>
+</div>
+
+<div class="section-card">
+  <h3>Description</h3>
+  <p>{{ if .Assignment.Description }}{{ .Assignment.Description }}{{ else }}No description provided.{{ end }}</p>
+</div>
+
+{{ if .IsAdmin }}
+<details class="section-card">
+  <summary><h3 style="display:inline">Verification</h3></summary>
+  <div class="list-card-meta" style="margin-top:0.5rem">
+    <span class="muted-text">Metadata hash <code class="hash">{{ .Assignment.MetadataHash }}</code></span>
+    <span class="muted-text">Assignment publication is anchored to the internal blockchain ledger.</span>
+  </div>
+  <p><a href="/chain/audit/assignment/{{ .Assignment.ID }}" class="btn">Audit trail</a></p>
+</details>
+{{ end }}
+
+{{ if .CanSubmitAssignment }}
+<div class="section-card">
+  <h3>Submit work</h3>
+  {{ if .AssignmentPastDue }}
+  <p class="muted-text">This assignment is past due. New submissions are closed.</p>
+  {{ else }}
+  <form method="POST" action="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}/submissions" enctype="multipart/form-data" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="submission-file" class="item-title">Submission file</label>
+      <input type="file" id="submission-file" name="submission_file" class="form-item" required />
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Submit</button>
+    </div>
+  </form>
+  {{ end }}
+</div>
+
+{{ if .LatestSubmission }}
+<div class="section-card">
+  <h3>Latest submission</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Version <code>{{ .LatestSubmission.Version }}</code></span>
+    <span class="muted-text">File <code>{{ .LatestSubmission.FileName }}</code></span>
+    <span class="muted-text">SHA-256 <code class="hash">{{ .LatestSubmission.FileSHA256 }}</code></span>
+    <span class="muted-text">Submitted {{ .LatestSubmission.SubmittedAt }}</span>
+  </div>
+  <p><a href="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}/submissions/{{ .LatestSubmission.ID }}" class="btn">Open receipt</a></p>
+</div>
+{{ end }}
+
+{{ if .LatestGrade }}
+<div class="section-card">
+  <h3>Latest grade</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Grade <code>{{ .LatestGrade.GradeValue }}</code></span>
+    <span class="muted-text">Version <code>{{ .LatestGrade.Version }}</code></span>
+    <span class="muted-text">Published {{ .LatestGrade.PublishedAt }}</span>
+  </div>
+  <p><a href="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}/grade" class="btn">Verify grade</a></p>
+</div>
+{{ end }}
+{{ end }}
+
+{{ if .CanManageAssignment }}
+<div class="section-card">
+  <h3>Edit assignment</h3>
+  <form method="POST" action="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="assignment-title" class="item-title">Title</label>
+      <input type="text" id="assignment-title" name="title" class="form-item" value="{{ .Assignment.Title }}" required />
+    </div>
+    <div class="form-group">
+      <label for="assignment-description" class="item-title">Description</label>
+      <textarea id="assignment-description" name="description" class="form-item" rows="5">{{ .Assignment.Description }}</textarea>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label for="assignment-due-at" class="item-title">Due date (optional)</label>
+        <input type="datetime-local" id="assignment-due-at" name="due_at" class="form-item" value="{{ .Assignment.DueAtInput }}" />
+      </div>
+      <div class="form-group">
+        <label for="assignment-max-grade" class="item-title">Maximum grade</label>
+        <input type="number" id="assignment-max-grade" name="max_grade" class="form-item" min="0" step="0.01" value="{{ .Assignment.MaxGrade }}" required />
+      </div>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Save assignment</button>
+    </div>
+  </form>
+  <form method="POST" action="/courses/{{ .Course.ID }}/assignments/{{ .Assignment.ID }}/delete" class="inline-form" onsubmit="return confirm('Delete this assignment and all submissions/grades?');">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <button type="submit" class="btn btn-danger">Delete assignment</button>
+  </form>
+</div>
+
+<div class="section-heading">Submissions</div>
+
+{{ if .Submissions }}
+<div class="list-card-list">
+  {{ range .Submissions }}
+  <div class="list-card">
+    <div class="list-card-title">{{ .StudentDisplayName }}</div>
+    <div class="list-card-meta">
+      {{ if .StudentUsername }}<span class="muted-text">Username <code>{{ .StudentUsername }}</code></span>{{ end }}
+      <span class="muted-text">Version <code>{{ .Version }}</code></span>
+      <span class="muted-text">File <code>{{ .FileName }}</code></span>
+      <span class="muted-text">SHA-256 <code class="hash">{{ .FileSHA256 }}</code></span>
+      <span class="muted-text">Submitted {{ .SubmittedAt }}</span>
+    </div>
+    <p>
+      <a href="/courses/{{ $.Course.ID }}/assignments/{{ $.Assignment.ID }}/submissions/{{ .ID }}" class="btn">Receipt</a>
+      <a href="/courses/{{ $.Course.ID }}/assignments/{{ $.Assignment.ID }}/submissions/{{ .ID }}/grade" class="btn">Grade</a>
+    </p>
+  </div>
+  {{ end }}
+</div>
+{{ else }}
+<p class="muted-text">No submissions have been uploaded yet.</p>
+{{ end }}
+{{ end }}
+
+{{ template "foot" . }}

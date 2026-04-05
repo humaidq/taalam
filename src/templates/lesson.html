@@ -1,0 +1,146 @@
+{{ template "head" . }}
+
+{{ if .Error }}
+<div class="alert alert-red">
+  <h5 class="alert-title">Error</h5>
+  <p>{{ .Error }}</p>
+</div>
+{{ end }}
+
+<div class="page-header">
+  <div>
+    <h2>{{ .Lesson.Title }}</h2>
+    <p class="muted-text">{{ .Unit.Title }} - {{ .Course.Code }}</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="/courses/{{ .Course.ID }}" class="btn">Course</a>
+    <a href="/courses" class="btn">Courses</a>
+  </div>
+</div>
+
+{{ if .CanManageLesson }}
+<div class="section-card">
+  <h3>Lesson overview</h3>
+  <div class="list-card-meta">
+    <span class="muted-text">Unit <code>{{ .Unit.Title }}</code></span>
+    <span class="muted-text">Lesson {{ .Lesson.Position }}</span>
+    <span class="muted-text">{{ .LessonSlideCount }} slide{{ if ne .LessonSlideCount 1 }}s{{ end }}</span>
+    <span class="muted-text">Updated {{ .Lesson.UpdatedAt }}</span>
+    {{ if .LessonCompleted }}<span class="badge badge-success">Completed</span>{{ end }}
+  </div>
+  {{ if .Lesson.Description }}<p>{{ .Lesson.Description }}</p>{{ end }}
+</div>
+{{ end }}
+
+{{ if .LessonSlides }}
+<section class="lesson-viewer" data-lesson-viewer>
+  <div class="lesson-viewer-toolbar">
+    <button type="button" class="btn" data-lesson-prev aria-label="Previous slide"><i class="fa-solid fa-arrow-left"></i> Previous</button>
+    <div class="lesson-viewer-progress"><span data-lesson-position>1</span> / {{ .LessonSlideCount }}</div>
+    <div class="lesson-viewer-next-slot">
+      <button type="button" class="btn" data-lesson-next aria-label="Next slide">Next <i class="fa-solid fa-arrow-right"></i></button>
+      {{ if .CanMarkLessonComplete }}
+      <form method="POST" action="/courses/{{ .Course.ID }}/lessons/{{ .Lesson.ID }}/complete" data-lesson-complete hidden>
+        <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+        <button type="submit" class="btn" data-lesson-complete-button{{ if .LessonCompleted }} disabled{{ end }}>{{ if .LessonCompleted }}Completed{{ else }}Mark complete{{ end }}</button>
+      </form>
+      {{ end }}
+    </div>
+  </div>
+
+  <div class="lesson-viewer-stage">
+    {{ range .LessonSlides }}
+    <article class="lesson-slide" data-lesson-slide>
+      {{ if .Title }}<h3 class="lesson-slide-title">{{ .Title }}</h3>{{ end }}
+      <div class="lesson-slide-body markdown-content">{{ .RenderedHTML }}</div>
+    </article>
+    {{ end }}
+  </div>
+</section>
+{{ else }}
+<div class="section-card">
+  <h3>Slides</h3>
+  <p class="muted-text">This lesson does not have any slides yet.</p>
+</div>
+{{ end }}
+
+{{ if .CanManageLesson }}
+<div class="section-heading">Manage slides</div>
+
+<div class="section-card">
+  <h3>Edit lesson</h3>
+  <form method="POST" action="/courses/{{ .Course.ID }}/lessons/{{ .Lesson.ID }}" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="lesson-title" class="item-title">Lesson title</label>
+      <input type="text" id="lesson-title" name="title" class="form-item" value="{{ .Lesson.Title }}" required />
+    </div>
+    <div class="form-group">
+      <label for="lesson-description" class="item-title">Description</label>
+      <textarea id="lesson-description" name="description" class="form-item" rows="4">{{ .Lesson.Description }}</textarea>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Save lesson</button>
+    </div>
+  </form>
+  <form method="POST" action="/courses/{{ .Course.ID }}/lessons/{{ .Lesson.ID }}/delete" class="inline-form" onsubmit="return confirm('Delete this lesson and all of its slides?');">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <button type="submit" class="btn btn-danger">Delete lesson</button>
+  </form>
+</div>
+
+<div class="section-card">
+  <h3>Add slide</h3>
+  <form method="POST" action="/courses/{{ .Course.ID }}/lessons/{{ .Lesson.ID }}/slides" class="auth-form-stack">
+    <input type="hidden" name="_csrf" value="{{ .csrf_token }}" />
+    <div class="form-group">
+      <label for="new-slide-title" class="item-title">Title (optional)</label>
+      <input type="text" id="new-slide-title" name="title" class="form-item" placeholder="Introduction" />
+    </div>
+    <div class="form-group">
+      <label for="new-slide-markdown" class="item-title">Slide markdown</label>
+      <textarea id="new-slide-markdown" name="markdown_raw" class="form-item lesson-markdown-editor" rows="10" placeholder="# Slide title&#10;&#10;Write the slide in markdown." required></textarea>
+    </div>
+    <div class="form-group">
+      <button type="submit" class="btn">Add slide</button>
+    </div>
+  </form>
+</div>
+
+{{ if .LessonSlides }}
+<div class="lesson-editor-list">
+  {{ range .LessonSlides }}
+  <div class="list-card lesson-editor-card">
+    <div class="content-outline-card-header">
+      <div>
+        <div class="list-card-title">Slide {{ .Position }}{{ if .Title }} - {{ .Title }}{{ end }}</div>
+        <div class="list-card-meta">
+          <span class="muted-text">Updated {{ .UpdatedAt }}</span>
+        </div>
+      </div>
+    </div>
+    <form method="POST" action="/courses/{{ $.Course.ID }}/lessons/{{ $.Lesson.ID }}/slides/{{ .ID }}" class="auth-form-stack">
+      <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+      <div class="form-group">
+        <label for="slide-title-{{ .ID }}" class="item-title">Title (optional)</label>
+        <input type="text" id="slide-title-{{ .ID }}" name="title" class="form-item" value="{{ .Title }}" />
+      </div>
+      <div class="form-group">
+        <label for="slide-markdown-{{ .ID }}" class="item-title">Slide markdown</label>
+        <textarea id="slide-markdown-{{ .ID }}" name="markdown_raw" class="form-item lesson-markdown-editor" rows="10" required>{{ .MarkdownRaw }}</textarea>
+      </div>
+      <div class="form-group">
+        <button type="submit" class="btn">Save slide</button>
+      </div>
+    </form>
+    <form method="POST" action="/courses/{{ $.Course.ID }}/lessons/{{ $.Lesson.ID }}/slides/{{ .ID }}/delete" class="inline-form" onsubmit="return confirm('Delete this slide?');">
+      <input type="hidden" name="_csrf" value="{{ $.csrf_token }}" />
+      <button type="submit" class="btn btn-danger">Delete slide</button>
+    </form>
+  </div>
+  {{ end }}
+</div>
+{{ end }}
+{{ end }}
+
+{{ template "foot" . }}
