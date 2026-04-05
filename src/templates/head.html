@@ -27,6 +27,7 @@
       <nav class="navbar">
         <div class="nav-menu">
           <a href="/"{{ if .IsDashboard }} class="nav-active"{{ end }}>Home</a>
+          <a href="/certificates/verify"{{ if .IsCertificateVerify }} class="nav-active"{{ end }}>Verify</a>
           {{ if .IsAuthenticated }}
           <a href="/courses"{{ if .IsCourses }} class="nav-active"{{ end }}>Courses</a>
           {{ if .IsAdmin }}<a href="/chain"{{ if .IsChain }} class="nav-active"{{ end }}>Chain</a>{{ end }}

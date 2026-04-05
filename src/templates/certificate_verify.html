@@ -77,10 +77,14 @@
   <h3>Certificate record</h3>
   <div class="cert-record-grid">
     <span class="muted-text">Code</span><span>{{ .Verification.CertificateCode }}</span>
+    {{ if .IsAuthenticated }}
     <span class="muted-text">Student</span><span>{{ .Verification.StudentDisplayName }}</span>
-    <span class="muted-text">Course</span><span>{{ .Verification.CourseCode }} — {{ .Verification.CourseTitle }}</span>
+    <span class="muted-text">Course</span><span>{{ .Verification.CourseCode }} - {{ .Verification.CourseTitle }}</span>
     <span class="muted-text">Result</span><span>{{ .Verification.ResultSummary }}</span>
     {{ if .Verification.GradeSummary }}<span class="muted-text">Grade</span><span>{{ .Verification.GradeSummary }}</span>{{ end }}
+    {{ else }}
+    <span class="muted-text">Claims</span><span>Student, course, result, and grade are only confirmed when you provide them.</span>
+    {{ end }}
     <span class="muted-text">Issued</span><span>{{ .Verification.IssuedAt }}</span>
     <span class="muted-text">Status</span><span>{{ if .Verification.Revoked }}<span class="badge badge-danger">revoked</span>{{ else }}<span class="badge badge-success">active</span>{{ end }}</span>
   </div>

@@ -135,6 +135,7 @@ func RevokeCertificate(c flamego.Context, s session.Session) {
 func CertificateVerify(c flamego.Context, t template.Template, data template.Data) {
 	setPage(data, "Verify Certificate")
 	setBreadcrumbs(data, []BreadcrumbItem{{Name: "Verify Certificate", IsCurrent: true}})
+	data["IsCertificateVerify"] = true
 	data["HeaderOnly"] = false
 	data["CertificateCode"] = strings.TrimSpace(c.Query("code"))
 	data["ClaimStudent"] = strings.TrimSpace(c.Query("student"))

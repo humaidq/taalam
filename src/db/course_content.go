@@ -999,8 +999,8 @@ func ListStudentCompletedLessonIDs(ctx context.Context, courseID, studentID stri
 	rows, err := pool.Query(ctx, `
 		SELECT lc.lesson_id
 		FROM lesson_completions lc
-		JOIN course_lessons cl ON cl.id = lc.lesson_id
-		JOIN course_units cu ON cu.id = cl.unit_id
+		JOIN unit_lessons ul ON ul.id = lc.lesson_id
+		JOIN course_units cu ON cu.id = ul.unit_id
 		WHERE cu.course_id = $1
 		  AND lc.student_id = $2
 	`, strings.TrimSpace(courseID), strings.TrimSpace(studentID))
